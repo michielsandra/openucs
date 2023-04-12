@@ -1,0 +1,7 @@
+RFNOC_OOT_SRCS += $(addprefix $(dir $(abspath $(lastword $(MAKEFILE_LIST)))), \
+sounder_rx.v \
+blk_avg.v \
+bram_mem.v \
+rfnoc_block_sounder_rx.v \
+noc_shell_sounder_rx.v \
+)

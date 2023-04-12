@@ -1,0 +1,4 @@
+OOT_FPGA_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+include $(OOT_FPGA_DIR)/rfnoc_block_sounder_rx/Makefile.srcs
+
