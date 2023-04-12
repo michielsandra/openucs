@@ -50,7 +50,7 @@ make openucs
 Follow the guide in the [USRP Hardware Driver and USRP Manual](https://files.ettus.com/manual/page_usrp_x4xx.html).
 
 5. Update filesystem
-Download the mender file [here] (https://files.ettus.com/binaries/cache/x4xx/meta-ettus-v4.2.0.1-rc1/). 
+Download the mender file [here](https://files.ettus.com/binaries/cache/x4xx/meta-ettus-v4.2.0.1-rc1/). 
 Unzip and copy the file into the home directory of the X410 via SFTP.
 Then use the following commands on the X410 via SSH:
 ```
@@ -63,7 +63,7 @@ mender commit
 ```
 
 6. Download bitfile.
-Download the bitfile from [this] (https://lu.box.com/s/6g7uecb6cc5l842corv2gof9yfmjjk52) link.
+Download the bitfile from [this](https://lu.box.com/s/6g7uecb6cc5l842corv2gof9yfmjjk52) link.
 Details on how to compile the bitfile yourself will come soon.
 
 7. Load bitfile onto the USRP X410 
