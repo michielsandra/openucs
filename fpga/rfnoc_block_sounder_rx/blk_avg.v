@@ -4,6 +4,7 @@
 module blk_avg #(
   parameter DWIDTH = 32,
   parameter AWIDTH = 10,
+  parameter MWIDTH = 8,
   parameter NIPC   = 1
 )(
   input  wire                   clk,
@@ -14,72 +15,121 @@ module blk_avg #(
   output wire [DWIDTH*NIPC-1:0] dout,
   output wire                   vout,
   input  wire [AWIDTH-1:0]      l,
-  input  wire [7:0]             m,
+  input  wire [MWIDTH-1:0]      m,
   input  wire [3:0]             k
 );
-  // state params
-  localparam S_IN  = 2'd0;
-  localparam S_ADD = 2'd1;
-  localparam S_OUT = 2'd2;
-
-  // state register
-  reg [1:0] state;
-
-  // three data registers
-  reg [NIPC*DWIDTH-1:0] data1;
-  reg valid1;
-
-  reg [NIPC*DWIDTH-1:0] data2;
-  reg valid2;
-
-  reg [NIPC*DWIDTH-1:0] data3;
-  reg valid3;
-
+  
   // param registers
-  reg [7:0]  m_reg;
+  reg [MWIDTH-1:0] m_reg;
   reg [AWIDTH-1:0] l_reg;
 
+  // stage registers
+  reg [NIPC*DWIDTH-1:0] data1;
+  reg [MWIDTH-1:0] m1;
+  reg [AWIDTH-1:0] l1;
+  reg v1;
+
+  reg [NIPC*DWIDTH-1:0] data2;
+  reg [MWIDTH-1:0] m2;
+  reg [AWIDTH-1:0] l2;
+  reg v2;
+  
+  reg [NIPC*DWIDTH-1:0] data3;
+  reg [MWIDTH-1:0] m3;
+  reg [AWIDTH-1:0] l3;
+  reg v3;
+
+
+  // wires
+  wire [NIPC*DWIDTH-1:0] mem_out;
+  wire add_en;
+  wire out_en;
+  
+  // update registers
   always @(posedge clk) begin
     m_reg <= m - 1;
     l_reg <= l - 1;
   end
+  
 
+  // MEMORY
+  genvar i;
+  for (i = 0; i < NIPC; i = i + 1) begin
+    bram_mem #(
+      .DWIDTH (DWIDTH),
+      .AWIDTH (AWIDTH)
+    ) inst_bram_mem (
+      .clk    (clk),
+      .ren    (1'b1),
+      .wen    (v3),
+      .r_addr (l1),
+      .w_addr (l3),
+      .din    (data3[32*(i+1)-1:32*i]),
+      .dout   (mem_out[32*(i+1)-1:32*i])
+    );
+  end
+  
   // STAGE 1
+  // data1
   always @(posedge clk) begin
     if(rst) begin
-      valid1 <= 0'b0;
+      v1 <= 1'b0;
     end else begin
-      valid1 <= vin;
+      if(en) begin
+        data1 <= din; 
+        v1 <= vin;
+      end
     end 
   end
 
+  // base counters
   always @(posedge clk) begin
-      data1 <= din;
+    if (rst) begin
+      l1 <= 0;
+      m1 <= 0;
+    end else begin
+      if (en & v1) begin
+        if (l1 == l_reg) begin
+          l1 <= 0;
+          if (m1 == m_reg) begin
+            m1 <= 0;
+          end else begin
+            m1 <= m1 + 1;
+          end
+        end else begin
+          l1 <= l1 + 1;
+        end
+      end
+    end 
   end
-
-  wire enable = valid1 & en;
 
   // STAGE 2
   generate 
     if (NIPC == 1) begin
       always @(posedge clk) begin
-        if (enable) begin
+        if (en) begin
           data2[31+0*32:16+0*32] <= $signed(data1[31+0*32:16+0*32]) >>> k; 
           data2[15+0*32:32*0] <= $signed(data1[15+0*32:32*0]) >>> k; 
+          v2 <= v1;
+          l2 <= l1;
+          m2 <= m1;
         end
       end
     end else if (NIPC == 2) begin
       always @(posedge clk) begin
-        if (enable) begin
+        if (en) begin
           data2[31+0*32:16+0*32] <= $signed(data1[31+0*32:16+0*32]) >>> k; 
           data2[15+0*32:32*0] <= $signed(data1[15+0*32:32*0]) >>> k; 
           data2[31+1*32:16+1*32] <= $signed(data1[31+1*32:16+1*32]) >>> k; 
           data2[15+1*32:1*32] <= $signed(data1[15+1*32:1*32]) >>> k; 
+          v2 <= v1;
+          l2 <= l1;
+          m2 <= m1;
         end
       end
     end else if (NIPC == 4) begin
       always @(posedge clk) begin
-        if (enable) begin
+        if (en) begin
           data2[31+0*32:16+0*32] <= $signed(data1[31+0*32:16+0*32]) >>> k; 
           data2[15+0*32:32*0] <= $signed(data1[15+0*32:32*0]) >>> k; 
           data2[31+1*32:16+1*32] <= $signed(data1[31+1*32:16+1*32]) >>> k; 
@@ -88,29 +138,24 @@ module blk_avg #(
           data2[15+2*32:2*32] <= $signed(data1[15+2*32:2*32]) >>> k; 
           data2[31+3*32:16+3*32] <= $signed(data1[31+3*32:16+3*32]) >>> k; 
           data2[15+3*32:3*32] <= $signed(data1[15+3*32:3*32]) >>> k; 
+          v2 <= v1;
+          l2 <= l1;
+          m2 <= m1;
         end
       end
     end
   endgenerate
 
-  always @(posedge clk) begin
-    if(rst) begin
-      valid2 <= 0'b0;
-    end else begin
-      if (enable) begin
-        valid2 <= 1'b1;
-      end 
-    end 
-  end
-
+  assign add_en = (m2 == 0) ? 1'b0 : 1'b1;
 
   // STAGE 3
-  wire [NIPC*DWIDTH-1:0] mem_out;
-  wire add_en;
   generate 
     if (NIPC == 1) begin
       always @(posedge clk) begin
-        if (enable) begin
+        if (en) begin
+          v3 <= v2;
+          l3 <= l2;
+          m3 <= m2;
           if (add_en) begin
             data3[31+0*32:16+0*32] <= data2[31+0*32:16+0*32] + mem_out[31+0*32:16+0*32]; 
             data3[15+0*32:32*0] <= data2[15+0*32:32*0] + mem_out[15+0*32:32*0];
@@ -122,7 +167,10 @@ module blk_avg #(
     end 
     else if (NIPC == 2) begin
       always @(posedge clk) begin
-        if (enable) begin
+        if (en) begin
+          v3 <= v2;
+          l3 <= l2;
+          m3 <= m2;
           if (add_en) begin
             data3[31+0*32:16+0*32] <= data2[31+0*32:16+0*32] + mem_out[31+0*32:16+0*32];
             data3[15+0*32:32*0] <= data2[15+0*32:32*0] + mem_out[15+0*32:32*0];
@@ -136,7 +184,10 @@ module blk_avg #(
     end
     else if (NIPC == 4) begin
       always @(posedge clk) begin
-        if (enable) begin
+        if (en) begin
+          v3 <= v2;
+          l3 <= l2;
+          m3 <= m2;
           if (add_en) begin
             data3[31+0*32:16+0*32] <= data2[31+0*32:16+0*32] + mem_out[31+0*32:16+0*32];
             data3[15+0*32:32*0] <= data2[15+0*32:32*0] + mem_out[15+0*32:32*0];
@@ -153,112 +204,12 @@ module blk_avg #(
       end
     end
   endgenerate
-  
 
-  always @(posedge clk) begin
-    if(rst) begin
-      valid3 <= 0'b0;
-    end else begin
-      if (enable) begin
-        valid3 <= valid2 & out_en;
-      end 
-    end 
-  end
-
-  // MEMORY
-  genvar i;
-  for (i = 0; i < NIPC; i = i + 1) begin
-    bram_mem #(
-      .DWIDTH (DWIDTH),
-      .AWIDTH (AWIDTH)
-    ) inst_bram_mem (
-      .r_clk  (clk),
-      .w_clk  (clk),
-      .en     (enable),
-      .r_addr (cnt1),
-      .w_addr (cnt3),
-      .din    (data3[32*(i+1)-1:32*i]),
-      .dout   (mem_out[32*(i+1)-1:32*i])
-    );
-  end
-
-
-  // COUNTERS
-  reg [AWIDTH-1:0] cnt1;
-  reg [AWIDTH-1:0] cnt2;
-  reg [AWIDTH-1:0] cnt3;
-  
-
-  always @(posedge clk) begin
-    if(rst) begin
-        cnt1 <= 0;
-        cnt2 <= 0;
-        cnt3 <= 0;
-    end else begin
-      if (enable) begin
-        cnt2 <= cnt1;
-        cnt3 <= cnt2;
-        if (cnt1 == l_reg) begin
-          cnt1 <= 10'd0;
-        end else begin
-          cnt1 <= cnt1 + 1;
-        end
-      end
-    end 
-  end
-
-  // next state line
-  wire next = (cnt2 == l_reg) ? 1'b1 : 1'b0;
-
-  // STATE MACHINE
-  reg [7:0] m_cnt;
-
-
-  always @(posedge clk) begin
-    if(rst) begin
-      state <= S_IN;
-      m_cnt <= 8'd1;
-    end else begin
-      if (enable & next) begin
-        case (state)
-          S_IN:
-            begin
-              if (m_reg == 8'd0) begin
-                state <= S_IN;
-                m_cnt <= 8'd1;
-              end else if (m_reg == 8'd1) begin
-                state <= S_OUT;
-                m_cnt <= m_cnt + 1;
-              end else begin
-                state <= S_ADD;
-                m_cnt <= m_cnt + 1;
-              end
-            end
-          S_ADD:
-            begin
-              if (m_cnt == m_reg) begin 
-                state <= S_OUT; 
-              end
-              m_cnt <= m_cnt + 1;
-            end
-          S_OUT:
-            begin
-              state <= S_IN;
-              m_cnt <= 8'd1;
-            end
-        endcase
-      end
-    end
-  end
-
-
-  // some control wires
-  assign add_en = (state == S_ADD || state == S_OUT) ? 1'b1 : 1'b0;
-  wire out_en = (state == S_OUT || (state == S_IN && m_reg == 8'd0)) ? 1'b1 : 1'b0;
+  assign out_en = (m3 == m_reg) ? 1'b1 : 1'b0;
 
   // output values
   assign dout = data3;
-  assign vout = valid3 & valid1;
+  assign vout = v3 & out_en;
 
 
 endmodule // blk_avg

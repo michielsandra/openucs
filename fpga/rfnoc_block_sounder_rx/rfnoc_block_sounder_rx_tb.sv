@@ -15,19 +15,19 @@ module rfnoc_block_sounder_rx_tb;
   // Testbench Configuration //--------------------------------------------------------------------------- 
   localparam [31:0] NOC_ID          = 32'h0E870000;
   localparam [ 9:0] THIS_PORTID     = 10'h123;
-  localparam int    CHDR_W          = 128;    // CHDR size in bits
+  localparam int    CHDR_W          = 64;    // CHDR size in bits
   localparam int    MTU             = 10;    // Log2 of max transmission unit in CHDR words
   localparam int    NUM_PORTS       = 1;
-  localparam int    NIPC            = 4;
+  localparam int    NIPC            = 1;
   localparam int    NUM_PORTS_I     = 0+NUM_PORTS;
   localparam int    NUM_PORTS_O     = 0+NUM_PORTS;
   localparam int    ITEM_W          = 32;    // Sample size in bits
   localparam int    SPP             = 256;    // Samples per packet
   localparam int    PKT_SIZE_BYTES  = SPP * (ITEM_W/8);
-  localparam int    STALL_PROB      = 25;    // Default BFM stall probability
+  localparam int    STALL_PROB      = 90;    // Default BFM stall probability
   localparam real   CHDR_CLK_PER    = 5.0;   // 200 MHz
   localparam real   CTRL_CLK_PER    = 8.0;   // 125 MHz
-  localparam real   CE_CLK_PER      = 4.0;   // 250 MHz
+  localparam real   CE_CLK_PER      = 8.0;   // 125 MHz
 
   //---------------------------------------------------------------------------
   // Clocks and Resets
@@ -230,12 +230,12 @@ module rfnoc_block_sounder_rx_tb;
   );
     // Calculate expected number of receive packets
     //
-    int l = 1024;
+    int l = 512;
     int m = 1;
-    int k = 0;
-    int r = 1024;
+    int k = 2;
+    int r = 8736;
     int ml = m*l;
-    int p = 1024;
+    int p = 2048;
     int ant = 1;
     int seq_len = l;
     int log2avg = k; 
@@ -450,7 +450,7 @@ module rfnoc_block_sounder_rx_tb;
     //test_sounder_rx(1, 6, 0);
     //test_sounder_rx(1, 3000, 0);
     
-    test_sounder_rx(100, 0); // 40 packets on port 0 
+    test_sounder_rx(1000, 0); // 40 packets on port 0 
     //test_sounder_rx(10, 10, 2);
     //test_sounder_rx(10, 10, 3);
     test.end_test();

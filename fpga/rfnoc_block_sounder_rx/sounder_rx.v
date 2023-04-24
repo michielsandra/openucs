@@ -113,7 +113,8 @@ module sounder_rx #(
   // block averager
   blk_avg #(
     .DWIDTH (WIDTH),
-    .AWIDTH (10),
+    .AWIDTH (12),
+    .MWIDTH (8),
     .NIPC   (NIPC)
   ) blk_avg_inst (
     .clk   (clk),
@@ -123,7 +124,7 @@ module sounder_rx #(
     .vin   (i_axis_tvalid & active),
     .dout  (o_axis_tdata),
     .vout  (o_axis_tvalid),
-    .l     (l[9:0]),
+    .l     (l[11:0]),
     .m     (m),
     .k     (k)
     );

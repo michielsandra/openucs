@@ -139,7 +139,6 @@ def update_graph(*vals):
             y = y[:F]
             y = 20*np.log10(abs(np.fft.ifft(y[:F]/xzch)))
             y = resample_poly(y, upsamp, 1)
-            # print(ch, np.argmax(y), y[np.argmax(y)])
 
             # make graph
             fig.add_trace(go.Scatter(x=np.arange(L*upsamp),
@@ -152,8 +151,6 @@ def update_graph(*vals):
             yidx = np.argmax(y)
             y = y0 * np.exp(1j*2*np.pi*yidx/F*np.arange(F))
             y = np.angle(y[:F]/xzch)
-            # y = 20*np.log10(abs(np.fft.ifft(y[:F]/xzch)))
-            # y = resample_poly(y, upsamp, 1)
 
             fig.add_trace(go.Scatter(x=np.arange(L),
                     y=y, mode='lines',name='ch{}'.format(ch)))
@@ -166,7 +163,6 @@ def update_graph(*vals):
             fig.add_trace(go.Scatter(x=np.arange(L*upsamp),
                     y=y, mode='lines',name='ch{}'.format(ch)))
 
-        # fig.update_layout(yaxis_range=[-20,50],xaxis_title='Frequency [GHz]', yaxis_title='Channel gain [dB]', height=800)
     if choice == 'pdp':
         fig.update_layout(xaxis_title='Delay', yaxis_title='Channel gain [dB]', height=550)
     elif choice == 'phase':
@@ -183,4 +179,4 @@ def update_graph(*vals):
 
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0',debug=True, port=3389)
+    app.run_server(host='0.0.0.0',debug=True, port=8050)

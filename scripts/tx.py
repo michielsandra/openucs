@@ -11,8 +11,8 @@ dt = np.dtype([('re', np.int16), ('im', np.int16)])
 # Parameters
 f = 813 # amount of frequency points # floor(400 MHz / 500 MHz *1024 )
 l = 1024 # L 
-p = 1024 # p must be a multiple of l (for the current version of this code)
-m = 128 # M 
+p = 2048 # p must be a multiple of l (for the current version of this code)
+m = 16 # M 
 ntx = 4
 ntx_offset = 0
 period = 2500000
@@ -40,8 +40,6 @@ for i in range(ntx_offset, ntx):
             out = np.append(out, np.tile(y16,m+int(p/l)))
         else:
             out = np.append(out, np.zeros(m*l+p,dt))
-
-        print(np.size(out))
 
     out = np.append(out, np.zeros(r,dt))
 
