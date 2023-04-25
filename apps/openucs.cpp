@@ -157,7 +157,7 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
     // DDC
     uhd::rfnoc::block_id_t ddc_id[nradio];
     std::shared_ptr<uhd::rfnoc::ddc_block_control> ddc_ctrl[nradio];
-    if (has_ddc) {
+    if (has_ddc && nrx > 0) {
       for (int i = 0; i < nradio; i++){
         ddc_id[i] = uhd::rfnoc::block_id_t(0, "DDC", i);
         ddc_ctrl[i] = graph->get_block<uhd::rfnoc::ddc_block_control> (ddc_id[i]);
@@ -172,10 +172,16 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
         "sc16", "sc16"); // We should read the wire format from the blocks
 
     // Rx streamer
-    auto rx_stream = graph->create_rx_streamer(nrx, stream_args);
+    uhd::rx_streamer::sptr rx_stream;
+    if (nrx > 0) {
+      rx_stream = graph->create_rx_streamer(nrx, stream_args);
+    }
 
     // Tx streamer
-    auto tx_stream = graph->create_tx_streamer(ntx, stream_args);
+    uhd::tx_streamer::sptr tx_stream;
+    if (ntx > 0) {
+      tx_stream = graph->create_tx_streamer(ntx, stream_args);
+    }
 
     /************************************************************************
      * Connect all blocks
@@ -211,21 +217,19 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
     /************************************************************************
      * Configure Radio block
      ***********************************************************************/
-    // Rx freq
+    // Rx 
     for (int i = 0; i < nrx; i++) {
       int rid = (int) floor(i/nradio);
       int j = i % nradio;
-
-      // Rx freq
       radio_ctrl[rid]->set_rx_frequency(freq, j);
-      
-      // Tx freq
-      radio_ctrl[rid]->set_tx_frequency(freq, j);
-        
-      // Rx gain
       radio_ctrl[rid]->set_rx_gain(rx_gain, j);
-      
-      // Tx gain
+    }
+    
+    // Tx 
+    for (int i = 0; i < ntx; i++) {
+      int rid = (int) floor(i/nradio);
+      int j = i % nradio;
+      radio_ctrl[rid]->set_tx_frequency(freq, j);
       radio_ctrl[rid]->set_tx_gain(tx_gain, j);
     }
 
@@ -257,12 +261,12 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
 
 
     // Rate
-    std::cout << "Requesting RX Rate: " << (rate / 1e6) << " Msps..." << std::endl;
+    std::cout << "Requesting rate: " << (rate / 1e6) << " Msps..." << std::endl;
     for (int i = 0; i < nradio; i++) {
       rate = radio_ctrl[i]->set_rate(rate);
       // TODO DDC and DUC
     }
-    std::cout << "Actual RX Rate: " << (rate / 1e6) << " Msps..." << std::endl
+    std::cout << "Actual rate: " << (rate / 1e6) << " Msps..." << std::endl
               << std::endl;
 
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -270,15 +274,17 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
     /************************************************************************
      * Configure SounderRx block
      ***********************************************************************/
-    int r = floor(rate/meas_rate) - ntx_tot*(p+m*l) + p;
-    rx_ctrl->set_ml(m*l/nipc);
-    rx_ctrl->set_p(p/nipc);
-    rx_ctrl->set_k(k);
-    rx_ctrl->set_r(r/nipc);
-    rx_ctrl->set_l(l/nipc);
-    rx_ctrl->set_a(ntx_tot);
-    rx_ctrl->set_pa(spp/nipc);
-    rx_ctrl->set_m(m);
+    if (nrx > 0) {
+      int r = floor(rate/meas_rate) - ntx_tot*(p+m*l) + p;
+      rx_ctrl->set_ml(m*l/nipc);
+      rx_ctrl->set_p(p/nipc);
+      rx_ctrl->set_k(k);
+      rx_ctrl->set_r(r/nipc);
+      rx_ctrl->set_l(l/nipc);
+      rx_ctrl->set_a(ntx_tot);
+      rx_ctrl->set_pa(spp/nipc);
+      rx_ctrl->set_m(m);
+    }
 
     /************************************************************************
      * Configure synchronization
@@ -463,8 +469,6 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
             replay_buff_addr+replay_buff_size*i, replay_buff_size, i, time_spec, repeat);
       }
     }
-    
-    std::cout << "I'm here" << std::endl;
     
     /************************************************************************
      * Start Rx 
